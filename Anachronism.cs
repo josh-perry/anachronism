@@ -7,28 +7,70 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
+using System.Text;
+using System;
+using System.Web.Http;
+
 namespace Anachronism
 {
-    public static class Anachronism
+    public class Acronym
     {
+        public string Abbreviation;
+
+        public string FullForm;
+    }
+
+    public class Anachronism
+    {
+        private readonly IWordService _wordService;
+
+        public Anachronism(IWordService wordService)
+        {
+            _wordService = wordService;
+        }
+
+        public Acronym MakeAcronym(string acronym)
+        {
+            var fullForm = new StringBuilder();
+
+            foreach(var c in acronym)
+            {
+                var word = _wordService.GetWordBeginningWith(c);
+                fullForm.Append($"{word} ");
+            }
+
+            return new Acronym {
+                Abbreviation = acronym.ToUpper(),
+                FullForm = fullForm.ToString().Trim()
+            };
+        }
+
         [FunctionName("Anachronism")]
-        public static async Task<IActionResult> Run(
+        public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            log.LogInformation("C# HTTP trigger function processed a request.");
+            try
+            {
+                string acronymInputString = req.Query["acronym"];
+                string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+                dynamic data = JsonConvert.DeserializeObject(requestBody);
+                acronymInputString = acronymInputString ?? data?.acronym;
 
-            string name = req.Query["name"];
+                if(string.IsNullOrEmpty(acronymInputString))
+                {
+                    return new OkObjectResult("Ok!");
+                }
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
+                log.LogInformation($"Generating acronym: {acronymInputString.ToUpper()}");
 
-            string responseMessage = string.IsNullOrEmpty(name)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {name}. This HTTP triggered function executed successfully.";
-
-            return new OkObjectResult(responseMessage);
+                var acronym = MakeAcronym(acronymInputString);
+                return new JsonResult(acronym);
+            }
+            catch(Exception ex)
+            {
+                return new ExceptionResult(ex, true);
+            }
         }
     }
 }
