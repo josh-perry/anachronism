@@ -11,15 +11,10 @@ using System.Text;
 using System;
 using System.Web.Http;
 
+using Anachronism.Models;
+
 namespace Anachronism
 {
-    public class Acronym
-    {
-        public string Abbreviation;
-
-        public string FullForm;
-    }
-
     public class Anachronism
     {
         private readonly IWordService _wordService;
@@ -69,6 +64,7 @@ namespace Anachronism
             }
             catch(Exception ex)
             {
+                log.LogError(ex, "Failed to generate acronym!");
                 return new ExceptionResult(ex, true);
             }
         }
